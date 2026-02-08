@@ -69,7 +69,7 @@ def main():
                 },
             ],
 
-
+           )
         if not chat.choices or len(chat.choices) == 0:
             raise RuntimeError("no choices in response")
 
