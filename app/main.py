@@ -40,7 +40,7 @@ def main():
             },
         }
     ],
-)
+
     )
 
     if not chat.choices or len(chat.choices) == 0:
