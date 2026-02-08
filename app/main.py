@@ -20,49 +20,66 @@ def main():
 
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-    chat = client.chat.completions.create(
-        model="anthropic/claude-haiku-4.5",
-        messages=[{"role": "user", "content": args.p}],
-        tools=[
-        {
-            "type": "function",
-            "function": {
-                "name": "Read",
-                "description": "Read and return the contents of a file",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "file_path": {
-                            "type": "string",
-                            "description": "The path to the file to read",
-                        }
+    messages = [
+        {"role": "user", "content": args.p}
+    ]
+
+    while True:
+        chat = client.chat.completions.create(
+            model="anthropic/claude-haiku-4.5",
+            messages=messages,
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "Read",
+                        "description": "Read and return the contents of a file",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "file_path": {
+                                    "type": "string",
+                                    "description": "The path to the file to read",
+                                }
+                            },
+                            "required": ["file_path"],
+                        },
                     },
-                    "required": ["file_path"],
-                },
-            },
-        }
-    ],
-    )
+                }
+            ],
+        )
 
-    if not chat.choices or len(chat.choices) == 0:
-        raise RuntimeError("no choices in response")
+        if not chat.choices or len(chat.choices) == 0:
+            raise RuntimeError("no choices in response")
 
-    message = chat.choices[0].message
+        message = chat.choices[0].message
 
-    # Check if the model wants to call a tool
-    if message.tool_calls:
-        tool_call = message.tool_calls[0]
-        function_name = tool_call.function.name
-        arguments = json.loads(tool_call.function.arguments)
+        # Record assistant message
+        messages.append(message)
 
-        if function_name == "Read":
-            file_path = arguments["file_path"]
-
-            with open(file_path, "r") as f:
-                contents = f.read()
-
-            print(contents)
+        # If no tool calls, we're done
+        if not message.tool_calls:
+            print(message.content)
             return
+
+        # Execute tool calls (only Read for this stage)
+        for tool_call in message.tool_calls:
+            function_name = tool_call.function.name
+            arguments = json.loads(tool_call.function.arguments)
+
+            if function_name == "Read":
+                file_path = arguments["file_path"]
+
+                with open(file_path, "r") as f:
+                    contents = f.read()
+
+                # Send tool result back to the model
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": contents,
+                })
+
 
     # Fallback: normal text response
     print(message.content)
