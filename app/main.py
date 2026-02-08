@@ -2,6 +2,8 @@ import argparse
 import os
 import sys
 import json
+import subprocess
+
 
 
 from openai import OpenAI
@@ -68,6 +70,24 @@ def main():
                     },
                 },
             ],
+            {
+                    "type": "function",
+                    "function": {
+                        "name": "Bash",
+                        "description": "Execute a shell command",
+                        "parameters": {
+                            "type": "object",
+                            "required": ["command"],
+                            "properties": {
+                                "command": {
+                                    "type": "string",
+                                    "description": "The command to execute",
+                                }
+                            },
+                        },
+                    },
+                },
+
 
            )
         if not chat.choices or len(chat.choices) == 0:
@@ -112,6 +132,26 @@ def main():
                     "tool_call_id": tool_call.id,
                     "content": "OK",
                 })
+            elif function_name == "Bash":
+                command = arguments["command"]
+
+                result = subprocess.run(
+                    command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                )
+
+                output = result.stdout
+                if result.stderr:
+                    output += result.stderr
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": output,
+                })
+
 
 
 
